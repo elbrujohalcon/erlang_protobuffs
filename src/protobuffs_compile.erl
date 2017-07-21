@@ -141,8 +141,8 @@ output(Basename, MessagesRaw, RawEnums, Options) ->
 
     error_logger:info_msg("Writing header file to ~p~n",[HeaderFile]),
     ok = write_header_include_file(HeaderFile, Messages),
-    PokemonBeamFile = code:where_is_file("pokemon_pb.beam"),
-    {ok,{_,[{abstract_code,{_,Forms}}]}} = beam_lib:chunks(PokemonBeamFile, [abstract_code]),
+    {pokemon_pb, Binary, _} = code:get_object_code(pokemon_pb),
+    {ok,{_,[{abstract_code,{_,Forms}}]}} = beam_lib:chunks(Binary, [abstract_code]),
     Forms1 = filter_forms(Messages, Enums, Forms, Basename, []),
     {ok, _, Bytes, _Warnings} = protobuffs_file:compile_forms(Forms1, proplists:get_value(compile_flags,Options,[])),
     BeamFile = case proplists:get_value(output_ebin_dir,Options) of
@@ -165,8 +165,8 @@ output_source(Basename, MessagesRaw, Enums, Options) ->
     end,
     error_logger:info_msg("Writing header file to ~p~n",[HeaderFile]),
     ok = write_header_include_file(HeaderFile, Messages),
-    PokemonBeamFile = filename:dirname(code:which(?MODULE)) ++ "/pokemon_pb.beam",
-    {ok,{_,[{abstract_code,{_,Forms}}]}} = beam_lib:chunks(PokemonBeamFile, [abstract_code]),
+    {pokemon_pb, Binary, _} = code:get_object_code(pokemon_pb),
+    {ok,{_,[{abstract_code,{_,Forms}}]}} = beam_lib:chunks(Binary, [abstract_code]),
     Forms1 = filter_forms(Messages, Enums, Forms, Basename, []),
     SrcFile = case proplists:get_value(output_src_dir,Options) of
     undefined ->
@@ -276,11 +276,7 @@ filter_forms(Msgs, Enums, [{function,L,to_record,2,[Clause]}|Tail], Basename, Ac
     filter_forms(Msgs, Enums, Tail, Basename, [expand_to_record_function(Msgs, L, Clause)|Acc]);
 
 filter_forms(Msgs, Enums, [{function,L,enum_to_int,2,[Clause]}|Tail], Basename, Acc) ->
-    Acc2 = case any_message_has_fields(Msgs) orelse any_message_has_extentions(Msgs) of
-        true -> [expand_enum_to_int_function(Enums,L,Clause)|Acc];
-        false -> Acc
-    end,
-    filter_forms(Msgs, Enums, Tail, Basename, Acc2);
+    filter_forms(Msgs, Enums, Tail, Basename, [expand_enum_to_int_function(Enums, L, Clause)|Acc]);
 
 filter_forms(Msgs, Enums, [{function,L,int_to_enum,2,[Clause]}|Tail], Basename, Acc) ->
     filter_forms(Msgs, Enums, Tail, Basename, [expand_int_to_enum_function(Enums, L, Clause)|Acc]);
